@@ -73,7 +73,7 @@ jobs:
             graphviz
             open_pdks.sky130a
 
-      - name: Verify tools and locate SKY130 Liberty
+      - name: Verify tools and locate SKY130 HD Liberty
         run: |
           set -euo pipefail
 
@@ -81,22 +81,23 @@ jobs:
           yosys -V
           dot -V
 
-          echo "CONDA_PREFIX=$CONDA_PREFIX"
+          PDK_DIR="$CONDA_PREFIX/share/pdk/sky130A"
 
-          LIB_FILE=$(find "$CONDA_PREFIX/share/pdk/sky130A" \
+          LIB_FILE=$(find "$PDK_DIR/libs.ref/sky130_fd_sc_hd/lib" \
             -type f \
-            -name 'sky130_fd_sc_hd__tt_025C_5v00.lib' \
+            -name 'sky130_fd_sc_hd__tt_025C_1v80.lib' \
             -print -quit)
 
           if [ -z "$LIB_FILE" ] || [ ! -f "$LIB_FILE" ]; then
-            echo "ERROR: SKY130 HD Liberty file was not found."
-            find "$CONDA_PREFIX/share/pdk/sky130A" \
+            echo "ERROR: Expected SKY130 HD Liberty file not found."
+            echo "Available HD Liberty files:"
+            find "$PDK_DIR/libs.ref/sky130_fd_sc_hd/lib" \
               -type f -name '*.lib' -print
             exit 1
           fi
 
           echo "SKY130_LIB=$LIB_FILE" >> "$GITHUB_ENV"
-          echo "Found SKY130 Liberty: $LIB_FILE"
+          echo "Found SKY130 HD Liberty: $LIB_FILE"
           
       - name: Generate, synthesize, and visualize selected design
         working-directory: systolic-array-circuit-generator
