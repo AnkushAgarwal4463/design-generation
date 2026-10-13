@@ -91,8 +91,14 @@ jobs:
           yosys -V
           dot -V
 
-      - name: Generate, synthesize, and visualize all eight designs
+      - name: Generate, synthesize, and visualize selected design
         working-directory: systolic-array-circuit-generator
+        env:
+          ARRAY_ROWS: ${{ inputs.array_rows }}
+          ARRAY_COLS: ${{ inputs.array_cols }}
+          DATA_WIDTH: ${{ inputs.data_width }}
+          UTIL: ${{ inputs.utilization }}
+          CLK_PERIOD: ${{ inputs.clk_period }}
         run: python3 scripts/run_all.py
 
       - name: Upload generated RTL, synthesis results, and schematics
