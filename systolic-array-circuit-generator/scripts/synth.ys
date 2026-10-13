@@ -1,0 +1,16 @@
+# Reference Yosys synthesis recipe for one generated configuration.
+# scripts/run_all.py writes a concrete .ys file for every configuration.
+# Replace CONFIG and TOP_MODULE with a selected generated wrapper/top name.
+read_verilog rtl/pe.v rtl/systolic_array.v generated/CONFIG_top.v
+hierarchy -check -top TOP_MODULE
+proc
+opt
+check
+synth -top TOP_MODULE -flatten
+opt
+abc -g simple
+clean
+check
+tee -o outputs/CONFIG_stats.txt stat
+tee -o outputs/CONFIG_stats.json stat -json
+write_verilog -noattr -noexpr outputs/CONFIG_gatelevel.v
