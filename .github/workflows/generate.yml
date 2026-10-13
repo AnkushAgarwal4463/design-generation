@@ -120,6 +120,29 @@ jobs:
 
           python scripts/run_all.py
 
+      - name: Diagnose generated files
+        if: always()
+        run: |
+          echo "=== Workspace ==="
+          pwd
+
+          echo "=== Project files ==="
+          ls -la systolic-array-circuit-generator
+
+          echo "=== Generated directory ==="
+          if [ -d systolic-array-circuit-generator/generated ]; then
+            find systolic-array-circuit-generator/generated -type f -print
+          else
+            echo "generated/ does not exist"
+          fi
+
+          echo "=== Outputs directory ==="
+          if [ -d systolic-array-circuit-generator/outputs ]; then
+            find systolic-array-circuit-generator/outputs -type f -print
+          else
+            echo "outputs/ does not exist"
+          fi
+
       - name: Upload generated RTL, netlists, statistics, and schematics
         if: always()
         uses: actions/upload-artifact@v4
