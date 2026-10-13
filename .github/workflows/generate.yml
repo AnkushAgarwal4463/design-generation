@@ -1,0 +1,45 @@
+name: Systolic Array Design Generation
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'systolic-array-circuit-generator/**'
+      - '.github/workflows/generate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  generate-and-synthesize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Python and Yosys
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 yosys
+
+      - name: Check tool versions
+        run: |
+          python3 --version
+          yosys -V
+
+      - name: Generate and synthesize all eight designs
+        working-directory: systolic-array-circuit-generator
+        run: python3 scripts/run_all.py
+
+      - name: Upload generated RTL and synthesis results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: systolic-array-designs
+          path: |
+            systolic-array-circuit-generator/generated/
+            systolic-array-circuit-generator/outputs/
+          if-no-files-found: warn
+          retention-days: 30
