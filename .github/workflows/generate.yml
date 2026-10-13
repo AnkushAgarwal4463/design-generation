@@ -81,27 +81,23 @@ jobs:
           yosys -V
           dot -V
 
-          echo "CONDA_PREFIX=${CONDA_PREFIX:-not-set}"
+          echo "CONDA_PREFIX=$CONDA_PREFIX"
 
-          if [ -z "${CONDA_PREFIX:-}" ]; then
-            echo "ERROR: Micromamba environment is not active."
-            exit 1
-          fi
-
-          LIB_FILE=$(find "$CONDA_PREFIX" \
+          LIB_FILE=$(find "$CONDA_PREFIX/share/pdk/sky130A" \
+            -type f \
             -name 'sky130_fd_sc_hd__tt_025C_5v00.lib' \
             -print -quit)
 
           if [ -z "$LIB_FILE" ] || [ ! -f "$LIB_FILE" ]; then
             echo "ERROR: SKY130 HD Liberty file was not found."
-            echo "Searching the environment for installed PDK files:"
-            find "$CONDA_PREFIX" -iname '*sky130*' -print | head -100
+            find "$CONDA_PREFIX/share/pdk/sky130A" \
+              -type f -name '*.lib' -print
             exit 1
           fi
 
           echo "SKY130_LIB=$LIB_FILE" >> "$GITHUB_ENV"
           echo "Found SKY130 Liberty: $LIB_FILE"
-
+          
       - name: Generate, synthesize, and visualize selected design
         working-directory: systolic-array-circuit-generator
         env:
