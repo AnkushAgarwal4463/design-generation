@@ -19,7 +19,7 @@ def main():
             tag = f"sys{rows}x{cols}_w{width}"
             top = f"systolic_top_{rows}x{cols}_w{width}"
             wrapper = GENERATED / f"{tag}_top.v"
-            text = "\\n".join([
+            text = "\n".join([
                 "// Auto-generated wrapper. Do not edit by hand.",
                 f"module {top} (",
                 "    input wire clk,",
@@ -45,7 +45,10 @@ def main():
                 "data_width": width, "acc_width": acc_width,
                 "top_module": top, "wrapper": str(wrapper.relative_to(ROOT))
             })
-    MANIFEST.write_text(json.dumps(manifest, indent=2) + "\\n", encoding="utf-8")
+    MANIFEST.write_text(
+    json.dumps(manifest, indent=2) + "\n",
+    encoding="utf-8"
+            )
     print(f"Generated {len(manifest)} configurations in {GENERATED}")
     for item in manifest:
         print(f"  {item['run_tag']}: top={item['top_module']}, ACC_WIDTH={item['acc_width']}")
