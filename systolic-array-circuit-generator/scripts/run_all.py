@@ -36,7 +36,7 @@ def main():
         yosys_script = outdir / "synth.ys"
 
         # This maps to generic simple gates, not a foundry-specific cell library.
-        script = "\\n".join([
+        script = "\n".join([
             f"read_verilog {RTL / 'pe.v'} {RTL / 'systolic_array.v'} {ROOT / item['wrapper']}",
             f"hierarchy -check -top {top}",
             "proc", "opt", "check",
@@ -51,7 +51,7 @@ def main():
         run([yosys, "-s", yosys_script])
         print(f"[OK] {tag}: {netlist.relative_to(ROOT)}")
 
-    print(f"\\nCompleted {len(manifest)} designs.")
+    print(f"\nCompleted {len(manifest)} designs.")
     print(f"Outputs: {OUT}")
     print("Note: generic gate mapping is not SKY130 technology mapping.")
     return 0
