@@ -1,45 +1,74 @@
-
-name: Systolic Array Circuit and Schematic Generation
+```yaml
+name: Systolic Array Design Generation
 
 on:
   workflow_dispatch:
     inputs:
       array_rows:
-        description: "Array rows"
+        description: 'Array rows'
         required: true
         type: choice
-        default: "2"
-        options: ["2", "4", "8"]
+        options:
+          - '2'
+          - '4'
+          - '8'
+        default: '2'
+
       array_cols:
-        description: "Array columns"
+        description: 'Array columns'
         required: true
         type: choice
-        default: "2"
-        options: ["2", "4", "8"]
+        options:
+          - '2'
+          - '4'
+          - '8'
+        default: '2'
+
       data_width:
-        description: "Data width in bits"
+        description: 'Data width'
         required: true
         type: choice
-        default: "4"
-        options: ["4", "8"]
+        options:
+          - '4'
+          - '8'
+        default: '4'
+
       utilization:
-        description: "Target utilization (%)"
+        description: 'Utilization (%)'
         required: true
         type: choice
-        default: "20"
-        options: ["20", "30", "40", "50", "60", "70"]
-      clock_period:
-        description: "Clock period (ns)"
+        options:
+          - '20'
+          - '30'
+          - '40'
+          - '50'
+          - '60'
+          - '70'
+        default: '20'
+
+      clk_period:
+        description: 'Clock period'
         required: true
         type: choice
-        default: "10"
-        options: ["10", "15", "20", "25", "30", "35"]
+        options:
+          - '10'
+          - '15'
+          - '20'
+          - '25'
+          - '30'
+          - '35'
+        default: '10'
+
+  push:
+    paths:
+      - 'systolic-array-circuit-generator/**'
+      - '.github/workflows/generate.yml'
 
 permissions:
   contents: read
 
 jobs:
-  generate-schematic:
+  generate-and-synthesize:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -47,42 +76,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install tools
+      - name: Install Python, Yosys, Graphviz, and Matplotlib
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3 yosys graphviz
+          sudo apt-get install -y \
+            python3 \
+            python3-matplotlib \
+            yosys \
+            graphviz
 
-      - name: Check tools
+      - name: Check tool versions
         run: |
           python3 --version
           yosys -V
           dot -V
 
-      - name: Display configuration
-        run: |
-          echo "Array: ${{ inputs.array_rows }}x${{ inputs.array_cols }}"
-          echo "Data width: ${{ inputs.data_width }} bits"
-          echo "Utilization: ${{ inputs.utilization }}%"
-          echo "Clock period: ${{ inputs.clock_period }} ns"
+      - name: Generate, synthesize, and visualize all eight designs
+        working-directory: systolic-array-circuit-generator
+        run: python3 scripts/run_all.py
 
-      - name: Explain required integration
-        run: |
-          echo "This workflow needs the original OpenROAD flow's"
-          echo "RTL generator, SKY130 library, and synthesis scripts."
-          echo "Do not synthesize a different design and label it"
-          echo "with these parameters."
-          echo "See the workflow summary for required integration."
-
-      - name: Workflow summary
-        run: |
-          {
-            echo "## Requested circuit configuration"
-            echo "- Array: ${{ inputs.array_rows }}x${{ inputs.array_cols }}"
-            echo "- Data width: ${{ inputs.data_width }} bits"
-            echo "- Utilization: ${{ inputs.utilization }}%"
-            echo "- Clock period: ${{ inputs.clock_period }} ns"
-            echo
-            echo "This workflow currently records the configuration only."
-            echo "Integrate the original OpenROAD synthesis and RTL flow"
-            echo "before treating a generated schematic as a real result."
-          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload generated RTL, synthesis results, and schematics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: systolic-array-designs-and-visualizations
+          path: |
+            systolic-array-circuit-generator/generated/
+            systolic-array-circuit-generator/outputs/
+          if-no-files-found: warn
+          retention-days: 30
+```
