@@ -106,17 +106,25 @@ def export_schematic(yosys, dot, tag, top, netlist, outdir,
     png_file = prefix.with_suffix(".png")
     script = outdir / f"{tag}_schematic.ys"
 
+    
     commands = []
 
-    # Import library cell declarations so SKY130 instances are recognized.
+    # Load cell definitions before reading the synthesized netlist.
     if liberty is not None:
-        commands.append(f"read_liberty -lib {json.dumps(str(liberty))}")
+        # SKY130 technology-mapped cells
+        commands.append(
+            f"read_liberty -lib {json.dumps(str(liberty))}"
+        )
+    else:
+        # Generic Yosys internal cells, including $_SDFF_PP0_
+        commands.append("read_verilog -lib +/simcells.v")
 
     commands.extend([
         f"read_verilog {yosys_path(netlist)}",
         f"hierarchy -check -top {top}",
         f"show -format dot -prefix {yosys_path(prefix)} -colors 2",
     ])
+
 
     write_yosys_script(script, commands)
     result = run([yosys, "-s", script], check=False)
