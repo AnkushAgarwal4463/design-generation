@@ -16,7 +16,7 @@ GENERATED = ROOT / "generated"
 OUT = ROOT / "outputs"
 MANIFEST = GENERATED / "manifest.json"
 
-LIB_NAME = "sky130_fd_sc_hd__tt_025C_5v00.lib"
+LIB_NAME = "sky130_fd_sc_hd__tt_025C_1v80.lib"
 
 
 def run(cmd, check=True):
@@ -312,3 +312,118 @@ def main():
 
     logic_dir.mkdir(parents=True, exist_ok=True)
     sky130_dir.mkdir(parents=True, exist_ok=True)
+
+    architecture_dir.mkdir(parents=True, exist_ok=True)
+
+    # Process each generated configuration.
+    for item in manifest:
+        tag = item["run_tag"]
+        top = item["top_module"]
+
+        outdir = OUT / tag
+        outdir.mkdir(parents=True, exist_ok=True)
+
+        wrapper = ROOT / item["wrapper"]
+        if not wrapper.is_file():
+            raise FileNotFoundError(f"Generated wrapper missing: {wrapper}")
+
+        # ---------------------------------------------------------
+        # 1. GENERIC GATE-LEVEL SYNTHESIS
+        # ---------------------------------------------------------
+        generic_netlist = outdir / f"{tag}_gatelevel.v"
+        generic_stats = outdir / f"{tag}_stats.txt"
+        generic_json = outdir / f"{tag}_stats.json"
+        generic_script = outdir / "generic_synth.ys"
+
+        generic_commands = [
+            f"read_verilog {yosys_path(RTL / 'pe.v')} "
+            f"{yosys_path(RTL / 'systolic_array.v')} "
+            f"{yosys_path(wrapper)}",
+            f"hierarchy -check -top {top}",
+            f"synth -top {top} -flatten",
+            "clean",
+            "check",
+            f"tee -o {yosys_path(generic_stats)} stat",
+            f"tee -o {yosys_path(generic_json)} stat -json",
+            f"write_verilog -noattr -noexpr "
+            f"{yosys_path(generic_netlist)}",
+        ]
+
+        write_yosys_script(generic_script, generic_commands)
+        run([yosys, "-s", generic_script])
+
+        print(f"[OK] Generic netlist: {generic_netlist.relative_to(ROOT)}")
+
+        # ---------------------------------------------------------
+        # 2. SKY130 HD TECHNOLOGY-MAPPED SYNTHESIS
+        # ---------------------------------------------------------
+        sky_netlist = outdir / f"{tag}_sky130_gatelevel.v"
+        sky_stats = outdir / f"{tag}_sky130_stats.txt"
+        sky_json = outdir / f"{tag}_sky130_stats.json"
+        sky_script = outdir / "sky130_synth.ys"
+
+        lib_arg = json.dumps(str(liberty))
+
+        sky_commands = [
+            f"read_liberty -lib {lib_arg}",
+            f"read_verilog {yosys_path(RTL / 'pe.v')} "
+            f"{yosys_path(RTL / 'systolic_array.v')} "
+            f"{yosys_path(wrapper)}",
+            f"hierarchy -check -top {top}",
+            f"synth -top {top} -flatten -noabc",
+            f"dfflibmap -liberty {lib_arg}",
+            f"abc -liberty {lib_arg}",
+            "clean",
+            "check",
+            f"tee -o {yosys_path(sky_stats)} "
+            f"stat -liberty {lib_arg}",
+            f"tee -o {yosys_path(sky_json)} "
+            f"stat -json -liberty {lib_arg}",
+            f"write_verilog -noattr -noexpr "
+            f"{yosys_path(sky_netlist)}",
+        ]
+
+        write_yosys_script(sky_script, sky_commands)
+        run([yosys, "-s", sky_script])
+
+        print(f"[OK] SKY130 netlist: {sky_netlist.relative_to(ROOT)}")
+
+        # ---------------------------------------------------------
+        # 3. GENERIC LOGIC SCHEMATIC PNG
+        # ---------------------------------------------------------
+        export_schematic(
+            yosys, dot, tag, top, generic_netlist,
+            outdir, logic_dir
+        )
+
+        # ---------------------------------------------------------
+        # 4. SKY130 CELL SCHEMATIC PNG
+        # ---------------------------------------------------------
+        export_schematic(
+            yosys, dot, tag, top, sky_netlist,
+            outdir, sky130_dir, liberty=liberty
+        )
+
+        # ---------------------------------------------------------
+        # 5. CONFIGURATION-SPECIFIC ARCHITECTURE PNG
+        # ---------------------------------------------------------
+        architecture_png = architecture_dir / f"{tag}_architecture.png"
+        generate_architecture_png(item, architecture_png)
+
+    print(f"\nCompleted {len(manifest)} configuration(s).")
+    print(f"Generated RTL: {GENERATED}")
+    print(f"Netlists and statistics: {OUT}")
+    print(f"Generic schematics: {logic_dir}")
+    print(f"SKY130 schematics: {sky130_dir}")
+    print(f"Architecture diagrams: {architecture_dir}")
+
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (RuntimeError, FileNotFoundError, OSError, ValueError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        raise SystemExit(1)
+
