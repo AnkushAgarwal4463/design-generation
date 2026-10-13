@@ -1,4 +1,3 @@
-
 name: Systolic Array Design Generation
 
 on:
@@ -47,7 +46,7 @@ on:
         default: '20'
 
       clk_period:
-        description: 'Clock period'
+        description: 'Clock period (ns)'
         required: true
         type: choice
         options:
@@ -72,36 +71,64 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    defaults:
+      run:
+        shell: bash -l {0}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Python, Yosys, Graphviz, and Matplotlib
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            python3 \
-            python3-matplotlib \
-            yosys \
+      - name: Install Python, Yosys, Graphviz, Matplotlib, and SKY130 PDK
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: systolic-env
+          channels: litex-hub, conda-forge
+          create-args: >-
+            python=3.11
+            matplotlib
+            yosys
             graphviz
+            open_pdks.sky130a
 
-      - name: Check tool versions
+      - name: Check tools and locate SKY130 library
         run: |
-          python3 --version
+          python --version
           yosys -V
           dot -V
+
+          LIB_FILE=$(find "$CONDA_PREFIX/share/pdk/sky130A" \
+            -name 'sky130_fd_sc_hd__tt_025C_5v00.lib' \
+            -print -quit)
+
+          if [ -z "$LIB_FILE" ] || [ ! -f "$LIB_FILE" ]; then
+            echo "ERROR: SKY130 HD Liberty file was not found."
+            echo "PDK directory: $CONDA_PREFIX/share/pdk/sky130A"
+            exit 1
+          fi
+
+          echo "SKY130_LIB=$LIB_FILE" >> "$GITHUB_ENV"
+          echo "Found SKY130 library: $LIB_FILE"
 
       - name: Generate, synthesize, and visualize selected design
         working-directory: systolic-array-circuit-generator
         env:
-          ARRAY_ROWS: ${{ inputs.array_rows }}
-          ARRAY_COLS: ${{ inputs.array_cols }}
-          DATA_WIDTH: ${{ inputs.data_width }}
-          UTIL: ${{ inputs.utilization }}
-          CLK_PERIOD: ${{ inputs.clk_period }}
-        run: python3 scripts/run_all.py
+          ARRAY_ROWS: ${{ github.event.inputs.array_rows || '2' }}
+          ARRAY_COLS: ${{ github.event.inputs.array_cols || '2' }}
+          DATA_WIDTH: ${{ github.event.inputs.data_width || '4' }}
+          UTIL: ${{ github.event.inputs.utilization || '20' }}
+          CLK_PERIOD: ${{ github.event.inputs.clk_period || '10' }}
+        run: |
+          echo "Selected configuration:"
+          echo "Rows: $ARRAY_ROWS"
+          echo "Columns: $ARRAY_COLS"
+          echo "Data width: $DATA_WIDTH"
+          echo "Utilization: $UTIL%"
+          echo "Clock period: $CLK_PERIOD ns"
 
-      - name: Upload generated RTL, synthesis results, and schematics
+          python scripts/run_all.py
+
+      - name: Upload generated RTL, netlists, statistics, and schematics
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -111,4 +138,3 @@ jobs:
             systolic-array-circuit-generator/outputs/
           if-no-files-found: warn
           retention-days: 30
-
